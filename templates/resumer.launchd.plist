@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Long-running resumer daemon for macOS (KeepAlive: restarts if it
+     dies, starts at login). Replace __REPO__ and __HOME__ (see README)
+     and load with:
+       launchctl bootstrap "gui/$(id -u)" <this file>                  -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.herdr-limit.resumer</string>
+  <key>ProgramArguments</key>
+  <array><string>__REPO__/bin/resumer.sh</string></array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:__HOME__/.local/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>__HOME__/.herdr-limit/resumer-launchd.log</string>
+  <key>StandardErrorPath</key><string>__HOME__/.herdr-limit/resumer-launchd.log</string>
+</dict>
+</plist>

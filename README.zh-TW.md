@@ -89,10 +89,19 @@ hook 不動）並刪除複製過去的 hook；daemon／launchd／`~/.herdr-limit
 # 前景跑（先這樣測）
 ./bin/resumer.sh
 
-# 常駐：把它放進一個 herdr pane，或用 launchd / systemd --user
+# 常駐（macOS）：launchd，登入自動啟動、掛掉自動重啟
+sed -e "s|__REPO__|$PWD|g" -e "s|__HOME__|$HOME|g" \
+    templates/resumer.launchd.plist \
+    > ~/Library/LaunchAgents/com.herdr-limit.resumer.plist
+launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.herdr-limit.resumer.plist
+
+# 或者：放進一個 herdr pane 手動跑
 herdr workspace create --label ops --no-focus
 # 然後在那個 pane 裡跑 ./bin/resumer.sh
 ```
+
+之後更新過 `bin/resumer.sh` 記得重啟 daemon（launchd 跑的是啟動當下的
+程式碼）：`launchctl kickstart -k "gui/$(id -u)/com.herdr-limit.resumer"`
 
 可調環境變數：
 
