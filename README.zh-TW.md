@@ -166,11 +166,20 @@ export RELAY_AGENT_KIND=codex        # 或 grok / gemini / opencode
 herdr 是 0.8.0，protocol v15，還在跳號。你的腳本會在某次升級後壞掉，而你會在**隔天早上發現整夜什麼都沒做**才知道。
 
 ```bash
-# crontab -e
-0 * * * * /path/to/herdr-limit-relay/bin/healthcheck.sh
+# macOS：用 launchd。crontab 第一次寫入要等 TCC 核准，對話框只會出現在
+# 本機螢幕上——從 SSH session 跑會直接卡死。
+sed -e "s|__REPO__|$PWD|g" -e "s|__HOME__|$HOME|g" \
+    templates/healthcheck.launchd.plist \
+    > ~/Library/LaunchAgents/com.herdr-limit.healthcheck.plist
+launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.herdr-limit.healthcheck.plist
+
+# Linux：crontab -e
+# 0 * * * * /path/to/herdr-limit-relay/bin/healthcheck.sh
 ```
 
-`healthcheck.sh` 檢查 `~/.herdr-limit/heartbeat` 的 mtime，超過 2 倍輪詢間隔沒更新就發桌面通知。
+注意：launchd agent 掛在 `gui` domain，機器上的使用者登出就會停；無人值守的機器請保持登入（或改寫成 LaunchDaemon）。
+
+`healthcheck.sh` 檢查 `~/.herdr-limit/heartbeat` 的 mtime，超過 3 倍輪詢間隔沒更新就發桌面通知。
 
 另外強烈建議：
 
