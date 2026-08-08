@@ -15,6 +15,7 @@ input=$(cat)
 
 dir="${HERDR_LIMIT_STATE:-$HOME/.herdr-limit}"
 mkdir -p "$dir"
+chmod 700 "$dir"
 
 if command -v jq >/dev/null 2>&1 && jq -e . >/dev/null 2>&1 <<<"$input"; then
   jq -c '. + {logged_at: (now | floor)}' <<<"$input" >> "$dir/stopfailure-raw.jsonl"
