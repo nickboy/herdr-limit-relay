@@ -13,22 +13,24 @@ POLL="${RESUME_POLL_SECONDS:-300}"
 STALE=$(( POLL * 3 ))
 
 now=$(date +%s)
-# bash 3.2 (macOS default) + `set -u`: expanding an EMPTY array with
-# "${problems[@]}" errors. Every expansion below must stay guarded by
-# the `${#problems[@]} -gt 0` check.
-problems=()
+# A plain string, not an array: empty-array expansion under `set -u`
+# errors on bash 3.2 (macOS default), and this script must run under
+# whatever bash cron/launchd hands it.
+problems=""
+
+add_problem() { problems="${problems:+$problems; }$1"; }
 
 check_heartbeat() {
   local file="$1" label="$2"
   if [ ! -f "$file" ]; then
-    problems+=("$label never started")
+    add_problem "$label never started"
     return
   fi
   local last age
   last=$(cat "$file" 2>/dev/null || echo 0)
   age=$(( now - last ))
   if [ "$age" -gt "$STALE" ]; then
-    problems+=("$label stale (${age}s, threshold ${STALE}s)")
+    add_problem "$label stale (${age}s, threshold ${STALE}s)"
   fi
 }
 
@@ -41,14 +43,14 @@ if [ -s "$STATE_DIR/ledger.jsonl" ]; then
   oldest=$(jq -rs 'min_by(.queued_at) | .queued_at' "$STATE_DIR/ledger.jsonl" 2>/dev/null || echo "$now")
   waited=$(( now - oldest ))
   if [ "$waited" -gt 25200 ]; then   # 7h > any 5h window + slack
-    problems+=("session queued for $(( waited / 3600 ))h without resuming")
+    add_problem "session queued for $(( waited / 3600 ))h without resuming"
   fi
 fi
 
-"$HERDR" status >/dev/null 2>&1 || problems+=("herdr server unreachable")
+"$HERDR" status >/dev/null 2>&1 || add_problem "herdr server unreachable"
 
-if [ ${#problems[@]} -gt 0 ]; then
-  body=$(printf '%s; ' "${problems[@]}")
+if [ -n "$problems" ]; then
+  body="$problems"
   "$HERDR" notification show "Auto-resume unhealthy" \
     --body "$body" --sound request >/dev/null 2>&1 || true
   # Fallback for when herdr itself is the thing that is down.

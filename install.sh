@@ -54,5 +54,5 @@ echo
 echo "run Option B (cross-provider relay), in a second pane:"
 echo "  RELAY_AGENT_KIND=codex $SRC/bin/relay.sh"
 echo
-echo "add the dead man's switch:"
-echo "  (crontab -l 2>/dev/null; echo '0 * * * * $SRC/bin/healthcheck.sh') | crontab -"
+echo "add the dead man's switch (macOS: launchd, Linux: cron — see README,"
+echo "  'Dead man's switch'; NOTE crontab hangs on TCC when run over SSH)"

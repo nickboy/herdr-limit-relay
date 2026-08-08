@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Hourly dead man's switch for macOS. Replace __REPO__ and __HOME__
+     (see README) and load with:
+       launchctl bootstrap "gui/$(id -u)" <this file>                  -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.herdr-limit.healthcheck</string>
+  <key>ProgramArguments</key>
+  <array><string>__REPO__/bin/healthcheck.sh</string></array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:__HOME__/.local/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <dict><key>Minute</key><integer>0</integer></dict>
+  <key>RunAtLoad</key><true/>
+  <key>StandardOutPath</key><string>__HOME__/.herdr-limit/healthcheck-launchd.log</string>
+  <key>StandardErrorPath</key><string>__HOME__/.herdr-limit/healthcheck-launchd.log</string>
+</dict>
+</plist>

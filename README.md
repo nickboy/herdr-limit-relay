@@ -196,12 +196,24 @@ some upgrade, and you'll find out **the next morning when nothing got
 done overnight**.
 
 ```bash
-# crontab -e
-0 * * * * /path/to/herdr-limit-relay/bin/healthcheck.sh
+# macOS: use launchd. The first crontab write waits for TCC approval, and
+# the dialog only appears on the local screen - from an SSH session it
+# simply hangs forever.
+sed -e "s|__REPO__|$PWD|g" -e "s|__HOME__|$HOME|g" \
+    templates/healthcheck.launchd.plist \
+    > ~/Library/LaunchAgents/com.herdr-limit.healthcheck.plist
+launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.herdr-limit.healthcheck.plist
+
+# Linux: crontab -e
+# 0 * * * * /path/to/herdr-limit-relay/bin/healthcheck.sh
 ```
 
+Note: launchd agents live in the `gui` domain and stop when the console
+user logs out; keep unattended machines logged in (or convert to a
+LaunchDaemon).
+
 `healthcheck.sh` checks the mtime of `~/.herdr-limit/heartbeat` and
-fires a desktop notification when it's older than 2× the poll interval.
+fires a desktop notification when it's older than 3× the poll interval.
 
 Also strongly recommended:
 
