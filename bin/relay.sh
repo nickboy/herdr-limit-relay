@@ -23,8 +23,25 @@ MAX_CONCURRENT="${RELAY_MAX_CONCURRENT:-1}"
 TIMEOUT_MS="${RELAY_TIMEOUT_MS:-10800000}"   # 3h
 BRANCH_PREFIX="${RELAY_BRANCH_PREFIX:-nightshift}"
 
+RELAY_LOCK="$STATE_DIR/.relay-state.lock"
+
 mkdir -p "$STATE_DIR"
 log() { printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" | tee -a "$LOG"; }
+
+# relay.json is read-modified-written both by the main loop (record) and by
+# the fire-and-forget wait subshells (mark_done). Same mkdir-lock pattern as
+# the ledger in resumer.sh; readers don't need it because writers replace the
+# file atomically via mv.
+with_state_lock() {
+  for _ in $(seq 1 100); do
+    mkdir "$RELAY_LOCK" 2>/dev/null && return 0
+    sleep 0.1
+  done
+  log "WARN could not acquire relay state lock"
+  return 1
+}
+
+unlock_state() { rmdir "$RELAY_LOCK" 2>/dev/null || true; }
 
 read_prompt() {
   # Same-origin content: templates/RELAY-CONTRACT.md mirrors this prompt.
@@ -74,15 +91,19 @@ already_relayed() {
 
 record() {
   local tmp; tmp=$(mktemp "$STATE_DIR/.relay.XXXXXX")
+  with_state_lock || { rm -f "$tmp"; return 1; }
   [ -f "$RELAY_STATE" ] || echo '[]' > "$RELAY_STATE"
   jq --argjson e "$1" '. + [$e]' "$RELAY_STATE" > "$tmp" && mv "$tmp" "$RELAY_STATE"
+  unlock_state
 }
 
 mark_done() {
   local tmp; tmp=$(mktemp "$STATE_DIR/.relay.XXXXXX")
+  with_state_lock || { rm -f "$tmp"; return 1; }
   jq --arg ws "$1" --arg st "$2" \
     'map(if .workspace == $ws then .status = $st else . end)' \
     "$RELAY_STATE" > "$tmp" && mv "$tmp" "$RELAY_STATE"
+  unlock_state
 }
 
 start_relay() {
@@ -143,12 +164,13 @@ start_relay() {
 
 # --- main -------------------------------------------------------------------
 
+main() {
 command -v jq  >/dev/null 2>&1 || { echo "jq required" >&2; exit 2; }
 command -v git >/dev/null 2>&1 || { echo "git required" >&2; exit 2; }
 "$HERDR" status >/dev/null 2>&1 || { echo "herdr server not reachable" >&2; exit 2; }
 
 log "relay started (kind=$AGENT_KIND max_concurrent=$MAX_CONCURRENT)"
-trap 'log "relay stopping"; exit 0' INT TERM
+trap 'log "relay stopping"; unlock_state; exit 0' INT TERM
 
 while true; do
   date +%s > "$HEARTBEAT"
@@ -170,3 +192,10 @@ while true; do
 
   sleep "$POLL"
 done
+}
+
+# Run the daemon only when executed directly. bin/test-relay-state.sh sources
+# this file to unit-test the relay.json helpers without starting the loop.
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  main
+fi
