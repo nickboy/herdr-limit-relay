@@ -81,6 +81,45 @@ else
   bad "settings differ from original after round trip"
 fi
 
+echo "empty-original round trip (fresh user starts from '{}')"
+rm -rf "$CLAUDE_CONFIG_DIR" "$tmp/state"
+mkdir -p "$CLAUDE_CONFIG_DIR"
+printf '{}\n' > "$CLAUDE_CONFIG_DIR/settings.json"
+chmod 644 "$CLAUDE_CONFIG_DIR/settings.json"
+file_mode() { stat -f '%Lp' "$1" 2>/dev/null || stat -c '%a' "$1"; }
+
+( cd "$ROOT" && ./install.sh >/dev/null 2>&1 )
+if [ "$(our_entries)" = "1" ]; then ok "install from {} adds our entry"; else bad "install from {} failed"; fi
+if [ "$(file_mode "$CLAUDE_CONFIG_DIR/settings.json")" = "644" ]; then
+  ok "file mode preserved after install (644)"
+else
+  bad "install changed settings.json mode to $(file_mode "$CLAUDE_CONFIG_DIR/settings.json")"
+fi
+
+( cd "$ROOT" && ./uninstall.sh >/dev/null 2>&1 )
+if [ "$(jq -Sc . "$CLAUDE_CONFIG_DIR/settings.json")" = "{}" ]; then
+  ok "uninstall returns a fresh user to exactly {}"
+else
+  bad "round trip from {} left: $(jq -Sc . "$CLAUDE_CONFIG_DIR/settings.json")"
+fi
+if [ "$(file_mode "$CLAUDE_CONFIG_DIR/settings.json")" = "644" ]; then
+  ok "file mode preserved after uninstall (644)"
+else
+  bad "uninstall changed settings.json mode"
+fi
+
+echo "backup hygiene"
+if ls "$tmp"/state/backups/settings.json.bak.* >/dev/null 2>&1; then
+  ok "backups live in the state dir"
+else
+  bad "no backups found in state dir"
+fi
+if ls "$CLAUDE_CONFIG_DIR"/settings.json.bak.* >/dev/null 2>&1; then
+  bad "backups leaked into the claude config dir"
+else
+  ok "no backups left in the claude config dir"
+fi
+
 echo
 if [ "$fail" -eq 0 ]; then
   echo "all good"

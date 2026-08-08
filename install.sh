@@ -16,13 +16,24 @@ command -v jq >/dev/null 2>&1 || { echo "jq is required" >&2; exit 1; }
 echo "==> installing hook"
 mkdir -p "$CLAUDE_DIR/hooks" "$STATE_DIR"
 install -m 0755 "$SRC/hooks/limit-watch.sh" "$HOOK_DEST"
-chmod +x "$SRC/bin/"*.sh
 
 echo "==> merging into $SETTINGS"
 [ -f "$SETTINGS" ] || echo '{}' > "$SETTINGS"
-cp "$SETTINGS" "$SETTINGS.bak.$(date +%Y%m%d%H%M%S)"
 
-tmp=$(mktemp)
+# Backups live in OUR state dir, not in ~/.claude, and only the 5 most
+# recent are kept - this tool stays out of other tools' directories.
+BACKUP_DIR="$STATE_DIR/backups"
+mkdir -p "$BACKUP_DIR"
+cp "$SETTINGS" "$BACKUP_DIR/settings.json.bak.$(date +%Y%m%d%H%M%S)"
+(ls -t "$BACKUP_DIR"/settings.json.bak.* 2>/dev/null || true) | tail -n +6 | \
+  while read -r old; do rm -f "$old"; done
+
+# tmp file in the SAME directory as the target: mv is then an atomic
+# rename. mktemp's default $TMPDIR can be a different filesystem, where
+# mv degrades to copy+delete and an interrupt truncates settings.json.
+tmp=$(mktemp "$SETTINGS.tmp.XXXXXX")
+# mktemp creates 0600; restore the target's own mode before the rename.
+mode=$(stat -f '%Lp' "$SETTINGS" 2>/dev/null || stat -c '%a' "$SETTINGS")
 jq --arg cmd "$HOOK_DEST" '
   .hooks //= {}
   | .hooks.StopFailure //= []
@@ -36,8 +47,19 @@ jq --arg cmd "$HOOK_DEST" '
     )
 ' "$SETTINGS" > "$tmp"
 
-# Refuse to install if the merge produced invalid JSON or lost herdr's hooks.
-jq -e . "$tmp" >/dev/null || { echo "merge produced invalid JSON, aborting" >&2; exit 1; }
+# Refuse to install if the merge produced invalid JSON...
+jq -e . "$tmp" >/dev/null || { echo "merge produced invalid JSON, aborting" >&2; rm -f "$tmp"; exit 1; }
+# ...or changed ANYTHING outside .hooks.StopFailure (herdr's hooks and
+# every other key must survive byte-for-byte). The normalizer also drops
+# an empty .hooks container: creating it is the one legitimate side
+# effect when a fresh user starts from '{}'.
+norm='del(.hooks.StopFailure) | (if ((.hooks // {}) | length) == 0 then del(.hooks) else . end)'
+if ! diff -q <(jq -S "$norm" "$SETTINGS") \
+             <(jq -S "$norm" "$tmp") >/dev/null; then
+  echo "merge touched something outside .hooks.StopFailure, aborting" >&2
+  rm -f "$tmp"; exit 1
+fi
+chmod "$mode" "$tmp"
 mv "$tmp" "$SETTINGS"
 
 echo
