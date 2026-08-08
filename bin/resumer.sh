@@ -17,6 +17,7 @@ POLL="${RESUME_POLL_SECONDS:-300}"
 PROBE_MODEL="${RESUME_PROBE_MODEL:-haiku}"
 MAX_ATTEMPTS="${RESUME_MAX_ATTEMPTS:-5}"
 TIMEOUT_MS="${RESUME_TIMEOUT_MS:-1800000}"
+BROKEN_ALERT_AFTER="${RESUME_PROBE_BROKEN_ALERT:-3}"
 RESUME_MESSAGE="${RESUME_MESSAGE:-Continue where you left off. If the task is already complete, reply DONE and stop.}"
 
 mkdir -p "$STATE_DIR"
@@ -66,12 +67,27 @@ requeue() {
 
 # --- probe ------------------------------------------------------------------
 
-# Run from STATE_DIR, not a project dir: a project CLAUDE.md would be loaded
-# into the probe's context and make a "tiny" probe not tiny.
-limit_lifted() {
-  ( cd "$STATE_DIR" && \
-    timeout 60 claude -p "Reply with exactly: OK" --model "$PROBE_MODEL" \
-      >/dev/null 2>&1 )
+# Run from a neutral directory OUTSIDE $HOME: Claude Code reads CLAUDE.md from
+# the cwd and its ancestors, so probing from anywhere under $HOME would load
+# the user's global instructions into every probe and make a "tiny" probe not
+# tiny.
+#
+# Return codes:
+#   0 lifted  - probe succeeded, quota is back
+#   1 limited - probe failed with a limit-shaped error (expected while queued)
+#   2 broken  - probe failed for a non-limit reason (network, auth, CLI bug).
+#               NOT evidence the limit is still on; alerted on separately.
+probe_quota() {
+  local out rc
+  out=$( cd "${TMPDIR:-/tmp}" && \
+    timeout 60 claude -p "Reply with exactly: OK" --model "$PROBE_MODEL" 2>&1 )
+  rc=$?
+  [ "$rc" -eq 0 ] && return 0
+  if printf '%s' "$out" | grep -qiE 'limit|quota|too many requests|overloaded|429'; then
+    return 1
+  fi
+  log "probe failed for a non-limit reason (rc=$rc): $(printf '%s' "$out" | head -c 200)"
+  return 2
 }
 
 # --- resume paths -----------------------------------------------------------
@@ -184,23 +200,42 @@ log "resumer started (poll=${POLL}s probe=${PROBE_MODEL} max_attempts=${MAX_ATTE
 
 trap 'log "resumer stopping"; unlock; exit 0' INT TERM
 
+broken_streak=0
+
 while true; do
   date +%s > "$HEARTBEAT"
 
   if [ -s "$LEDGER" ]; then
-    if limit_lifted; then
-      log "limit appears lifted, draining ledger"
-      pending=$(drain_ledger) || pending=""
-      if [ -n "$pending" ]; then
-        while IFS= read -r line; do
-          [ -n "$line" ] || continue
-          resume_one "$line" || true
-        done <<< "$pending"
-      fi
-    else
-      count=$(wc -l < "$LEDGER" | tr -d ' ')
-      log "still limited, $count session(s) queued"
-    fi
+    probe_quota
+    probe_rc=$?
+    case "$probe_rc" in
+      0)
+        broken_streak=0
+        log "limit appears lifted, draining ledger"
+        pending=$(drain_ledger) || pending=""
+        if [ -n "$pending" ]; then
+          while IFS= read -r line; do
+            [ -n "$line" ] || continue
+            resume_one "$line" || true
+          done <<< "$pending"
+        fi
+        ;;
+      1)
+        broken_streak=0
+        count=$(wc -l < "$LEDGER" | tr -d ' ')
+        log "still limited, $count session(s) queued"
+        ;;
+      *)
+        # Resumption still requires a successful probe; this branch only
+        # surfaces that the probe itself looks broken instead of waiting
+        # silently until healthcheck's queued-too-long alarm.
+        broken_streak=$((broken_streak + 1))
+        if [ "$broken_streak" -eq "$BROKEN_ALERT_AFTER" ]; then
+          notify "Auto-resume probe broken" \
+            "probe failing for non-limit reasons; see resumer.log" request
+        fi
+        ;;
+    esac
   fi
 
   sleep "$POLL"

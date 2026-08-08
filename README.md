@@ -113,6 +113,7 @@ Tunable environment variables:
 | `RESUME_MESSAGE` | see script | Prompt sent on resume |
 | `RESUME_MAX_ATTEMPTS` | `5` | Retry cap per session, so a loop can't burn quota |
 | `RESUME_TIMEOUT_MS` | `1800000` | Cap on waiting for the agent to finish (30 min) |
+| `RESUME_PROBE_BROKEN_ALERT` | `3` | Notify after this many consecutive probe failures for NON-limit reasons (network down, auth expired, broken CLI) |
 
 **Keep the resume prompt conservative.** The default is `Continue where
 you left off. If the task is already complete, reply DONE and stop.` It
