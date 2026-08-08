@@ -58,6 +58,8 @@ late.
 ## Install
 
 Prerequisites: `herdr` ≥ 0.8.0, `jq`, Claude Code, `~/.claude` exists.
+Currently tested on macOS only (launchd, osascript); Linux guidance is
+best-effort.
 
 ```bash
 # 1. Install herdr's official claude integration first (if you haven't)
@@ -90,6 +92,11 @@ Verify after installing:
 jq '.hooks.StopFailure' ~/.claude/settings.json
 claude   # open inside a herdr pane, then /hooks should list StopFailure
 ```
+
+To remove: `./uninstall.sh` deletes only this tool's StopFailure entry
+(herdr's own hooks are untouched) and the copied hook file; daemons,
+launchd agents, and `~/.herdr-limit/` are yours to clean up — it prints
+reminders.
 
 ---
 
