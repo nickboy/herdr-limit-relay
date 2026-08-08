@@ -35,3 +35,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: ./bin/test-probe.sh
+
+  test-relay-state:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./bin/test-relay-state.sh
