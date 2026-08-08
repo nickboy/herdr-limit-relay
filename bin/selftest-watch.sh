@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Weekly guard, run from launchd: herdr is pre-1.0 and CI runners have
+# no herdr, so the CLI-surface drift selftest.sh detects is invisible
+# to CI - the most likely way this project dies is a herdr upgrade
+# quietly breaking the daemons. Runs the full selftest (including hook
+# registration) and notifies on any failure.
+
+set -uo pipefail
+
+HERDR="${HERDR_BIN_PATH:-herdr}"
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if out=$("$DIR/selftest.sh" --post-install 2>&1); then
+  echo "selftest ok"
+  exit 0
+fi
+
+fails=$(printf '%s\n' "$out" | grep -c FAIL || true)
+body="$fails check(s) failing after herdr/claude update - run selftest.sh"
+
+"$HERDR" notification show "herdr-limit-relay selftest FAILED" \
+  --body "$body" --sound request >/dev/null 2>&1 || true
+command -v osascript >/dev/null 2>&1 && \
+  osascript -e "display notification \"$body\" with title \"herdr-limit-relay selftest FAILED\"" 2>/dev/null
+
+printf '%s\n' "$out"
+exit 1

@@ -244,6 +244,13 @@ Also strongly recommended:
 ```bash
 herdr channel set stable      # don't run preview
 # before any upgrade: ./bin/selftest.sh
+
+# Run selftest weekly and notify on failure - CI runners have no herdr,
+# so API drift is only detectable on the machine itself:
+sed -e "s|__REPO__|$PWD|g" -e "s|__HOME__|$HOME|g" \
+    templates/selftest.launchd.plist \
+    > ~/Library/LaunchAgents/com.herdr-limit.selftest.plist
+launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.herdr-limit.selftest.plist
 ```
 
 ---
