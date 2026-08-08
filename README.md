@@ -106,10 +106,20 @@ reminders.
 # Run in the foreground (test it this way first)
 ./bin/resumer.sh
 
-# Long-running: put it in a herdr pane, or use launchd / systemd --user
+# Long-running (macOS): launchd - starts at login, restarts if it dies
+sed -e "s|__REPO__|$PWD|g" -e "s|__HOME__|$HOME|g" \
+    templates/resumer.launchd.plist \
+    > ~/Library/LaunchAgents/com.herdr-limit.resumer.plist
+launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.herdr-limit.resumer.plist
+
+# Or: run it manually in a herdr pane
 herdr workspace create --label ops --no-focus
 # then run ./bin/resumer.sh in that pane
 ```
+
+After updating `bin/resumer.sh`, restart the daemon (launchd runs the
+code as of process start):
+`launchctl kickstart -k "gui/$(id -u)/com.herdr-limit.resumer"`
 
 Tunable environment variables:
 
