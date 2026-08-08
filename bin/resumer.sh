@@ -24,7 +24,12 @@ mkdir -p "$STATE_DIR"
 # Logs can carry CLI error text (worst case: fragments of auth errors).
 # Keep the dir private and rotate at ~1MB so they never grow unbounded.
 chmod 700 "$STATE_DIR"
-[ -f "$LOG" ] && [ "$(wc -c < "$LOG" | tr -d ' ')" -gt 1048576 ] && mv "$LOG" "$LOG.old"
+# Explicit if, not a bare `[ ... ] && mv` list: on a fresh install the
+# missing-log case would make the list return 1, and if anyone ever adds
+# `set -e` here that turns first launch into a KeepAlive restart loop.
+if [ -f "$LOG" ] && [ "$(wc -c < "$LOG" | tr -d ' ')" -gt 1048576 ]; then
+  mv "$LOG" "$LOG.old"
+fi
 
 log() { printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" | tee -a "$LOG"; }
 

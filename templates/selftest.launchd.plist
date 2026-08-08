@@ -2,7 +2,11 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!-- Weekly selftest watch (Monday 09:30). Replace __REPO__ and __HOME__
      (see README) and load with:
-       launchctl bootstrap "gui/$(id -u)" <this file>                  -->
+       launchctl bootstrap "gui/$(id -u)" <this file>
+     RunAtLoad is INTENTIONAL alongside the weekly schedule: selftest
+     costs no tokens, so every login gets a free drift check right when
+     an OS/herdr/claude upgrade is most likely to have just happened -
+     and it only notifies on failure.                                  -->
 <plist version="1.0">
 <dict>
   <key>Label</key><string>com.herdr-limit.selftest</string>
