@@ -45,6 +45,7 @@ bin/relay.sh (daemon, Option B)
 ## 安裝
 
 前置：`herdr` ≥ 0.8.0、`jq`、Claude Code、`~/.claude` 已存在。
+目前僅在 macOS 上測試（launchd、osascript）；Linux 相關指引僅供參考。
 
 ```bash
 # 1. 先裝 herdr 官方 claude 整合（如果還沒）
@@ -75,6 +76,10 @@ cd herdr-limit-relay
 jq '.hooks.StopFailure' ~/.claude/settings.json
 claude   # 在 herdr pane 裡開，然後 /hooks 應該看到 StopFailure
 ```
+
+移除：`./uninstall.sh` 只拿掉本工具的 StopFailure 條目（herdr 自己的
+hook 不動）並刪除複製過去的 hook；daemon／launchd／`~/.herdr-limit/`
+要自己清，結尾會列提醒。
 
 ---
 

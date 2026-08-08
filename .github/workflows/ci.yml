@@ -41,3 +41,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: ./bin/test-relay-state.sh
+
+  test-install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./bin/test-install.sh
