@@ -86,7 +86,7 @@ rm -rf "$CLAUDE_CONFIG_DIR" "$tmp/state"
 mkdir -p "$CLAUDE_CONFIG_DIR"
 printf '{}\n' > "$CLAUDE_CONFIG_DIR/settings.json"
 chmod 644 "$CLAUDE_CONFIG_DIR/settings.json"
-file_mode() { stat -f '%Lp' "$1" 2>/dev/null || stat -c '%a' "$1"; }
+file_mode() { stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1"; }
 
 ( cd "$ROOT" && ./install.sh >/dev/null 2>&1 )
 if [ "$(our_entries)" = "1" ]; then ok "install from {} adds our entry"; else bad "install from {} failed"; fi

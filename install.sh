@@ -33,7 +33,7 @@ cp "$SETTINGS" "$BACKUP_DIR/settings.json.bak.$(date +%Y%m%d%H%M%S)"
 # mv degrades to copy+delete and an interrupt truncates settings.json.
 tmp=$(mktemp "$SETTINGS.tmp.XXXXXX")
 # mktemp creates 0600; restore the target's own mode before the rename.
-mode=$(stat -f '%Lp' "$SETTINGS" 2>/dev/null || stat -c '%a' "$SETTINGS")
+mode=$(stat -c '%a' "$SETTINGS" 2>/dev/null || stat -f '%Lp' "$SETTINGS")
 jq --arg cmd "$HOOK_DEST" '
   .hooks //= {}
   | .hooks.StopFailure //= []

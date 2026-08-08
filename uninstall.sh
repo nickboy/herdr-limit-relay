@@ -26,7 +26,7 @@ else
 
   # Same-directory tmp file -> atomic rename (see install.sh).
   tmp=$(mktemp "$SETTINGS.tmp.XXXXXX")
-  mode=$(stat -f '%Lp' "$SETTINGS" 2>/dev/null || stat -c '%a' "$SETTINGS")
+  mode=$(stat -c '%a' "$SETTINGS" 2>/dev/null || stat -f '%Lp' "$SETTINGS")
   # Also drop .hooks itself if we emptied it: install.sh starts new users
   # from '{}', and a true round trip must return them to '{}'.
   jq --arg cmd "$HOOK_DEST" '
