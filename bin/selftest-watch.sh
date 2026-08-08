@@ -15,13 +15,17 @@ if out=$("$DIR/selftest.sh" --post-install 2>&1); then
   exit 0
 fi
 
-fails=$(printf '%s\n' "$out" | grep -c FAIL || true)
+# grep -c exits 1 on zero matches (selftest can fail its prereq checks
+# without printing FAIL); default to 0 explicitly - same future-set -e
+# reasoning as the log-rotation if above.
+fails=$(printf '%s\n' "$out" | grep -c FAIL) || fails=0
 body="$fails check(s) failing after herdr/claude update - run selftest.sh"
 
 "$HERDR" notification show "herdr-limit-relay selftest FAILED" \
   --body "$body" --sound request >/dev/null 2>&1 || true
-command -v osascript >/dev/null 2>&1 && \
+if command -v osascript >/dev/null 2>&1; then
   osascript -e "display notification \"$body\" with title \"herdr-limit-relay selftest FAILED\"" 2>/dev/null
+fi
 
 printf '%s\n' "$out"
 exit 1
