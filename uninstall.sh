@@ -10,6 +10,7 @@ set -euo pipefail
 CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 SETTINGS="$CLAUDE_DIR/settings.json"
 HOOK_DEST="$CLAUDE_DIR/hooks/limit-watch.sh"
+RAW_DEST="$CLAUDE_DIR/hooks/stopfailure-raw.sh"
 
 command -v jq >/dev/null 2>&1 || { echo "jq is required" >&2; exit 1; }
 
@@ -29,9 +30,10 @@ else
   mode=$(stat -c '%a' "$SETTINGS" 2>/dev/null || stat -f '%Lp' "$SETTINGS")
   # Also drop .hooks itself if we emptied it: install.sh starts new users
   # from '{}', and a true round trip must return them to '{}'.
-  jq --arg cmd "$HOOK_DEST" '
+  jq --arg cmd "$HOOK_DEST" --arg raw "$RAW_DEST" '
     if .hooks.StopFailure? then
-      .hooks.StopFailure |= map(select(([.hooks[]?.command] | index($cmd)) | not))
+      .hooks.StopFailure |= map([.hooks[]?.command] as $cs
+        | select(((($cs | index($cmd)) != null) or (($cs | index($raw)) != null)) | not))
       | (if (.hooks.StopFailure | length) == 0 then del(.hooks.StopFailure) else . end)
       | (if (.hooks | length) == 0 then del(.hooks) else . end)
     else . end
@@ -43,10 +45,12 @@ else
   mv "$tmp" "$SETTINGS"
 fi
 
-if [ -f "$HOOK_DEST" ]; then
-  echo "==> removing $HOOK_DEST"
-  rm -f "$HOOK_DEST"
-fi
+for f in "$HOOK_DEST" "$RAW_DEST"; do
+  if [ -f "$f" ]; then
+    echo "==> removing $f"
+    rm -f "$f"
+  fi
+done
 
 echo
 echo "==> done. Not touched (remove yourself if wanted):"

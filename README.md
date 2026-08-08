@@ -84,6 +84,13 @@ cd herdr-limit-relay
 hook in this repo (or a `git pull`) do not affect the installed one —
 re-run `./install.sh` after changing it.
 
+It also installs a **diagnostic** matcher-less StopFailure hook
+(`stopfailure-raw.sh`) that appends every raw StopFailure payload to
+`~/.herdr-limit/stopfailure-raw.jsonl`. The schema is undocumented (see
+known limits below), so the first real event validates the `rate_limit`
+matcher premise — and shows whether a reset time exists — without
+waiting for an actual limit hit to find out.
+
 Verify after installing:
 
 ```bash

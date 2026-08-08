@@ -68,6 +68,12 @@ cd herdr-limit-relay
 `~/.claude/hooks/`，所以之後在 repo 裡修改 hook（或 `git pull` 更新），
 已安裝的那份不會跟著變——改完必須重跑 `./install.sh`。
 
+另外會裝一個**診斷用**的無 matcher StopFailure hook
+（`stopfailure-raw.sh`）：任何 StopFailure 的原始 payload 都會原封寫進
+`~/.herdr-limit/stopfailure-raw.jsonl`。官方沒文件化這個 schema
+（見下方已知限制），所以第一筆真實事件就能驗證 `rate_limit` matcher
+的前提、以及有沒有重置時間可用——不用等到第一次真的撞限制才知道。
+
 裝完驗證：
 
 ```bash

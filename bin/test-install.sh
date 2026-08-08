@@ -46,10 +46,19 @@ our_entries() {
     "$CLAUDE_CONFIG_DIR/settings.json"
 }
 
+RAW_CMD="$CLAUDE_CONFIG_DIR/hooks/stopfailure-raw.sh"
+raw_entries() {
+  jq --arg cmd "$RAW_CMD" \
+    '[.hooks.StopFailure[]? | select(([.hooks[]?.command] | index($cmd)))] | length' \
+    "$CLAUDE_CONFIG_DIR/settings.json"
+}
+
 echo "install"
 ( cd "$ROOT" && ./install.sh >/dev/null 2>&1 )
 if [ -x "$HOOK_CMD" ]; then ok "hook copied and executable"; else bad "hook not installed"; fi
+if [ -x "$RAW_CMD" ]; then ok "raw logger copied and executable"; else bad "raw logger not installed"; fi
 if [ "$(our_entries)" = "1" ]; then ok "our StopFailure entry added"; else bad "our entry missing"; fi
+if [ "$(raw_entries)" = "1" ]; then ok "raw diagnostic entry added (matcher-less)"; else bad "raw entry missing"; fi
 if jq -e '.hooks.StopFailure[] | select(.hooks[].command == "/somewhere/herdr-agent-state.sh")' \
      "$CLAUDE_CONFIG_DIR/settings.json" >/dev/null; then
   ok "foreign hook entry preserved"
@@ -64,16 +73,16 @@ fi
 
 echo "idempotency"
 ( cd "$ROOT" && ./install.sh >/dev/null 2>&1 )
-if [ "$(our_entries)" = "1" ]; then
-  ok "second install -> still exactly one entry"
+if [ "$(our_entries)" = "1" ] && [ "$(raw_entries)" = "1" ]; then
+  ok "second install -> still exactly one entry of each"
 else
-  bad "second install duplicated the entry ($(our_entries))"
+  bad "second install duplicated entries (ours=$(our_entries) raw=$(raw_entries))"
 fi
 
 echo "uninstall"
 ( cd "$ROOT" && ./uninstall.sh >/dev/null 2>&1 )
-if [ ! -e "$HOOK_CMD" ]; then ok "hook file removed"; else bad "hook file remains"; fi
-if [ "$(our_entries)" = "0" ]; then ok "our entry removed"; else bad "our entry remains"; fi
+if [ ! -e "$HOOK_CMD" ] && [ ! -e "$RAW_CMD" ]; then ok "both hook files removed"; else bad "hook files remain"; fi
+if [ "$(our_entries)" = "0" ] && [ "$(raw_entries)" = "0" ]; then ok "both entries removed"; else bad "entries remain"; fi
 if diff <(jq -S . "$tmp/original.json") \
         <(jq -S . "$CLAUDE_CONFIG_DIR/settings.json") >/dev/null; then
   ok "settings restored to original (modulo key order)"

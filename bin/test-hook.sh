@@ -59,6 +59,43 @@ else
   bad "hook left traces on disk outside herdr"
 fi
 
+RAW_HOOK="$(dirname "$HOOK")/stopfailure-raw.sh"
+
+run_raw() {
+  local payload="$1"; shift
+  printf '%s' "$payload" | \
+    env -u HERDR_ENV -u HERDR_PANE_ID \
+      HERDR_LIMIT_STATE="$tmp/state" "$@" "$RAW_HOOK"
+}
+
+echo "raw logger: capture path"
+rm -rf "$tmp/state"
+run_raw '{"session_id":"abc-123","cwd":"/tmp/proj"}' HERDR_ENV=1
+if jq -e '.session_id == "abc-123" and (.logged_at | type == "number")' \
+     "$tmp/state/stopfailure-raw.jsonl" >/dev/null 2>&1; then
+  ok "payload captured verbatim with logged_at stamp"
+else
+  bad "raw payload missing or malformed"
+fi
+
+echo "raw logger: append-only (no dedup - every event is data)"
+run_raw '{"session_id":"abc-123","cwd":"/tmp/proj"}' HERDR_ENV=1
+raw_lines=$(wc -l < "$tmp/state/stopfailure-raw.jsonl" | tr -d ' ')
+if [ "$raw_lines" = "2" ]; then
+  ok "two events -> two lines"
+else
+  bad "expected 2 raw lines, got ${raw_lines:-none}"
+fi
+
+echo "raw logger: no-op outside herdr"
+rm -rf "$tmp/state"
+run_raw '{"session_id":"abc-123","cwd":"/tmp/proj"}'
+if [ ! -e "$tmp/state" ]; then
+  ok "no state dir created when HERDR_ENV is unset"
+else
+  bad "raw logger left traces outside herdr"
+fi
+
 echo
 if [ "$fail" -eq 0 ]; then
   echo "all good"
