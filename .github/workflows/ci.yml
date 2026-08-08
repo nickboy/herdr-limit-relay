@@ -29,3 +29,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: ./bin/test-hook.sh
+
+  test-probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./bin/test-probe.sh
