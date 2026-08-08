@@ -206,6 +206,13 @@ launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.herdr-limit.health
 ```bash
 herdr channel set stable      # 別用 preview
 # 升級前先跑一次 ./bin/selftest.sh
+
+# 每週自動跑 selftest 並在失敗時通知——CI runner 上沒有 herdr，
+# API 漂移只有本機測得到：
+sed -e "s|__REPO__|$PWD|g" -e "s|__HOME__|$HOME|g" \
+    templates/selftest.launchd.plist \
+    > ~/Library/LaunchAgents/com.herdr-limit.selftest.plist
+launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.herdr-limit.selftest.plist
 ```
 
 ---
