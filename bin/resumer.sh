@@ -18,9 +18,13 @@ PROBE_MODEL="${RESUME_PROBE_MODEL:-haiku}"
 MAX_ATTEMPTS="${RESUME_MAX_ATTEMPTS:-5}"
 TIMEOUT_MS="${RESUME_TIMEOUT_MS:-1800000}"
 BROKEN_ALERT_AFTER="${RESUME_PROBE_BROKEN_ALERT:-3}"
-RESUME_MESSAGE="${RESUME_MESSAGE:-Continue where you left off. If the task is already complete, reply DONE and stop.}"
+RESUME_MESSAGE="${RESUME_MESSAGE:-Automated resume: the previous turn was interrupted by a rate limit. First run git status and review uncommitted changes so you do not re-apply work the interrupted turn already completed. Then continue where you left off. If the task is already complete, reply DONE and stop.}"
 
 mkdir -p "$STATE_DIR"
+# Logs can carry CLI error text (worst case: fragments of auth errors).
+# Keep the dir private and rotate at ~1MB so they never grow unbounded.
+chmod 700 "$STATE_DIR"
+[ -f "$LOG" ] && [ "$(wc -c < "$LOG" | tr -d ' ')" -gt 1048576 ] && mv "$LOG" "$LOG.old"
 
 log() { printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" | tee -a "$LOG"; }
 

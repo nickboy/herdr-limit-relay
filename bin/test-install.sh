@@ -129,6 +129,22 @@ else
   ok "no backups left in the claude config dir"
 fi
 
+echo "pre-existing EMPTY .hooks (known, accepted asymmetry)"
+# A user who deliberately keeps '{"hooks":{}}' gets '{}' back after the
+# round trip: uninstall cannot tell our emptied container from theirs.
+# This is documented behavior - pinned here so nobody "fixes" it into a
+# regression of the fresh-user round trip above.
+rm -rf "$CLAUDE_CONFIG_DIR" "$tmp/state"
+mkdir -p "$CLAUDE_CONFIG_DIR"
+printf '{"hooks":{}}\n' > "$CLAUDE_CONFIG_DIR/settings.json"
+( cd "$ROOT" && ./install.sh >/dev/null 2>&1 )
+( cd "$ROOT" && ./uninstall.sh >/dev/null 2>&1 )
+if [ "$(jq -Sc . "$CLAUDE_CONFIG_DIR/settings.json")" = "{}" ]; then
+  ok "empty .hooks collapses to {} - intentional, see comment"
+else
+  bad "unexpected shape: $(jq -Sc . "$CLAUDE_CONFIG_DIR/settings.json")"
+fi
+
 echo
 if [ "$fail" -eq 0 ]; then
   echo "all good"

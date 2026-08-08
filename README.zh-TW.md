@@ -120,7 +120,10 @@ herdr workspace create --label ops --no-focus
 | `RESUME_TIMEOUT_MS` | `1800000` | 等 agent 跑完的上限（30 分鐘） |
 | `RESUME_PROBE_BROKEN_ALERT` | `3` | 探針連續因「非限制原因」失敗幾次後發通知（網路斷、認證失效、CLI 壞掉） |
 
-**續跑 prompt 要保守。** 預設是 `Continue where you left off. If the task is already complete, reply DONE and stop.` 明確給它一個停止出口，否則它可能在新視窗裡自由發揮把額度再燒光。
+**續跑 prompt 要保守。** 預設訊息會（1）標明這是**自動續跑**、
+（2）要求先 `git status` 檢查未提交的變更，避免把被中斷那輪已完成的
+修改套第二次、（3）給明確的停止出口（做完就回 DONE 停下）——否則它
+可能在新視窗裡自由發揮把額度再燒光。完整字串見腳本。
 
 ---
 
@@ -197,7 +200,12 @@ launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.herdr-limit.health
 # 0 * * * * /path/to/herdr-limit-relay/bin/healthcheck.sh
 ```
 
-注意：launchd agent 掛在 `gui` domain，機器上的使用者登出就會停；無人值守的機器請保持登入（或改寫成 LaunchDaemon）。
+注意：launchd agent 掛在 `gui` domain，機器上的使用者登出就會停——
+**無人值守的機器必須保持 console 登入**。不要改成 LaunchDaemon：
+它以 root 在 system domain 跑，拿不到你 login keychain 裡的 Claude
+Code OAuth 憑證，探針會永遠以「broken」失敗。真的需要登出後運作，
+唯一的路是 `ANTHROPIC_API_KEY` 走 API 計費——但那就繞過了訂閱額度，
+這整套工具的前提也不成立了。
 
 `healthcheck.sh` 檢查 `~/.herdr-limit/heartbeat` 的 mtime，超過 3 倍輪詢間隔沒更新就發桌面通知。
 
@@ -229,6 +237,11 @@ launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.herdr-limit.selfte
 
 5. **這套不處理 weekly limit**。撞到週限制時，探針會持續失敗好幾天，`RESUME_MAX_ATTEMPTS` 不會觸發（因為根本沒送出）。腳本會一直輪詢，這是刻意的——但你會收到 healthcheck 通知。
 
-6. **herdr 是 AGPL-3.0**。自己用沒問題；包進產品或做託管服務要看清楚義務。
+6. **開了 extra usage / overage 的帳號會讓探針失真**。額度用盡後自動
+   轉 API 計費的帳號，探針在限制期間**仍然會成功**，resumer 會判定
+   「解除了」並在付費計價上把整夜工作跑完。用這套工具請關掉 overage，
+   或自行承擔費用。
+
+7. **herdr 是 AGPL-3.0**。自己用沒問題；包進產品或做託管服務要看清楚義務。
    本 repo 只以 shell 呼叫 `herdr` 執行檔、沒有連結它的程式碼，所以不
    承擔 AGPL 義務——本 repo 本身採 MIT 授權（見 `LICENSE`）。

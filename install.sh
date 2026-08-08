@@ -16,6 +16,7 @@ command -v jq >/dev/null 2>&1 || { echo "jq is required" >&2; exit 1; }
 
 echo "==> installing hook"
 mkdir -p "$CLAUDE_DIR/hooks" "$STATE_DIR"
+chmod 700 "$STATE_DIR"
 install -m 0755 "$SRC/hooks/limit-watch.sh" "$HOOK_DEST"
 install -m 0755 "$SRC/hooks/stopfailure-raw.sh" "$RAW_DEST"
 

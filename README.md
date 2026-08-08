@@ -139,10 +139,12 @@ Tunable environment variables:
 | `RESUME_TIMEOUT_MS` | `1800000` | Cap on waiting for the agent to finish (30 min) |
 | `RESUME_PROBE_BROKEN_ALERT` | `3` | Notify after this many consecutive probe failures for NON-limit reasons (network down, auth expired, broken CLI) |
 
-**Keep the resume prompt conservative.** The default is `Continue where
-you left off. If the task is already complete, reply DONE and stop.` It
-gives the agent an explicit exit; otherwise it may freewheel in the new
-window and burn the quota again.
+**Keep the resume prompt conservative.** The default message (1) marks
+itself as an **automated resume**, (2) asks the agent to `git status`
+and review uncommitted changes first so work the interrupted turn
+already completed is not re-applied, and (3) gives an explicit exit
+(reply DONE and stop when finished) — otherwise it may freewheel in the
+new window and burn the quota again. Full string in the script.
 
 ---
 
@@ -233,8 +235,13 @@ launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.herdr-limit.health
 ```
 
 Note: launchd agents live in the `gui` domain and stop when the console
-user logs out; keep unattended machines logged in (or convert to a
-LaunchDaemon).
+user logs out — **unattended machines must stay console-logged-in**. Do
+NOT convert to a LaunchDaemon: it runs as root in the system domain,
+which cannot reach the Claude Code OAuth credentials in your login
+keychain, so the probe would fail forever as "broken". If you truly
+need logged-out operation, the only path is `ANTHROPIC_API_KEY` with
+API billing — which bypasses the subscription window and defeats this
+tool's premise.
 
 `healthcheck.sh` checks the mtime of `~/.herdr-limit/heartbeat` and
 fires a desktop notification when it's older than 3× the poll interval.
@@ -283,7 +290,13 @@ launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.herdr-limit.selfte
    sent). The script keeps polling — deliberately — but you will get
    healthcheck notifications.
 
-6. **herdr is AGPL-3.0.** Fine for personal use; read the obligations
+6. **Extra usage / overage breaks the probe's semantics.** On accounts
+   that roll into API billing once the window is spent, the probe
+   SUCCEEDS while "limited", so resumer declares the limit lifted and
+   runs the whole night's work on metered billing. Disable overage
+   when using this tool, or accept the cost knowingly.
+
+7. **herdr is AGPL-3.0.** Fine for personal use; read the obligations
    before shipping it in a product or hosted service. This repo only
    shells out to the `herdr` binary and links none of its code, so it
    carries no AGPL obligations — the repo itself is MIT licensed (see

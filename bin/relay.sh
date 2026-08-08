@@ -26,6 +26,8 @@ BRANCH_PREFIX="${RELAY_BRANCH_PREFIX:-nightshift}"
 RELAY_LOCK="$STATE_DIR/.relay-state.lock"
 
 mkdir -p "$STATE_DIR"
+chmod 700 "$STATE_DIR"
+[ -f "$LOG" ] && [ "$(wc -c < "$LOG" | tr -d ' ')" -gt 1048576 ] && mv "$LOG" "$LOG.old"
 log() { printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" | tee -a "$LOG"; }
 
 # relay.json is read-modified-written both by the main loop (record) and by

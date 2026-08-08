@@ -24,6 +24,7 @@ input=$(cat)
 command -v jq >/dev/null 2>&1 || exit 0
 
 mkdir -p "$STATE_DIR"
+chmod 700 "$STATE_DIR"
 
 session_id=$(jq -r '.session_id // empty' <<<"$input" 2>/dev/null)
 cwd=$(jq -r '.cwd // empty' <<<"$input" 2>/dev/null)
