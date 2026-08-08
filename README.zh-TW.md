@@ -98,6 +98,7 @@ herdr workspace create --label ops --no-focus
 | `RESUME_MESSAGE` | 見腳本 | 續跑時送出的 prompt |
 | `RESUME_MAX_ATTEMPTS` | `5` | 單一 session 重試上限，避免無限迴圈燒額度 |
 | `RESUME_TIMEOUT_MS` | `1800000` | 等 agent 跑完的上限（30 分鐘） |
+| `RESUME_PROBE_BROKEN_ALERT` | `3` | 探針連續因「非限制原因」失敗幾次後發通知（網路斷、認證失效、CLI 壞掉） |
 
 **續跑 prompt 要保守。** 預設是 `Continue where you left off. If the task is already complete, reply DONE and stop.` 明確給它一個停止出口，否則它可能在新視窗裡自由發揮把額度再燒光。
 
