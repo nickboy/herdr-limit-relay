@@ -17,18 +17,29 @@ if [ ! -f "$SETTINGS" ]; then
   echo "no $SETTINGS - nothing to do"
 else
   echo "==> removing our StopFailure entry from $SETTINGS"
-  cp "$SETTINGS" "$SETTINGS.bak.$(date +%Y%m%d%H%M%S)"
+  STATE_DIR="${HERDR_LIMIT_STATE:-$HOME/.herdr-limit}"
+  BACKUP_DIR="$STATE_DIR/backups"
+  mkdir -p "$BACKUP_DIR"
+  cp "$SETTINGS" "$BACKUP_DIR/settings.json.bak.$(date +%Y%m%d%H%M%S)"
+  (ls -t "$BACKUP_DIR"/settings.json.bak.* 2>/dev/null || true) | tail -n +6 | \
+    while read -r old; do rm -f "$old"; done
 
-  tmp=$(mktemp)
+  # Same-directory tmp file -> atomic rename (see install.sh).
+  tmp=$(mktemp "$SETTINGS.tmp.XXXXXX")
+  mode=$(stat -c '%a' "$SETTINGS" 2>/dev/null || stat -f '%Lp' "$SETTINGS")
+  # Also drop .hooks itself if we emptied it: install.sh starts new users
+  # from '{}', and a true round trip must return them to '{}'.
   jq --arg cmd "$HOOK_DEST" '
     if .hooks.StopFailure? then
       .hooks.StopFailure |= map(select(([.hooks[]?.command] | index($cmd)) | not))
       | (if (.hooks.StopFailure | length) == 0 then del(.hooks.StopFailure) else . end)
+      | (if (.hooks | length) == 0 then del(.hooks) else . end)
     else . end
   ' "$SETTINGS" > "$tmp"
 
   # Refuse to proceed if the edit produced invalid JSON.
-  jq -e . "$tmp" >/dev/null || { echo "edit produced invalid JSON, aborting" >&2; exit 1; }
+  jq -e . "$tmp" >/dev/null || { echo "edit produced invalid JSON, aborting" >&2; rm -f "$tmp"; exit 1; }
+  chmod "$mode" "$tmp"
   mv "$tmp" "$SETTINGS"
 fi
 
