@@ -8,6 +8,7 @@ SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 SETTINGS="$CLAUDE_DIR/settings.json"
 HOOK_DEST="$CLAUDE_DIR/hooks/limit-watch.sh"
+RAW_DEST="$CLAUDE_DIR/hooks/stopfailure-raw.sh"
 STATE_DIR="${HERDR_LIMIT_STATE:-$HOME/.herdr-limit}"
 
 command -v jq >/dev/null 2>&1 || { echo "jq is required" >&2; exit 1; }
@@ -16,6 +17,7 @@ command -v jq >/dev/null 2>&1 || { echo "jq is required" >&2; exit 1; }
 echo "==> installing hook"
 mkdir -p "$CLAUDE_DIR/hooks" "$STATE_DIR"
 install -m 0755 "$SRC/hooks/limit-watch.sh" "$HOOK_DEST"
+install -m 0755 "$SRC/hooks/stopfailure-raw.sh" "$RAW_DEST"
 
 echo "==> merging into $SETTINGS"
 [ -f "$SETTINGS" ] || echo '{}' > "$SETTINGS"
@@ -34,15 +36,20 @@ cp "$SETTINGS" "$BACKUP_DIR/settings.json.bak.$(date +%Y%m%d%H%M%S)"
 tmp=$(mktemp "$SETTINGS.tmp.XXXXXX")
 # mktemp creates 0600; restore the target's own mode before the rename.
 mode=$(stat -c '%a' "$SETTINGS" 2>/dev/null || stat -f '%Lp' "$SETTINGS")
-jq --arg cmd "$HOOK_DEST" '
+jq --arg cmd "$HOOK_DEST" --arg raw "$RAW_DEST" '
   .hooks //= {}
   | .hooks.StopFailure //= []
-  # drop any previous copy of OUR entry, keep everything else (incl. herdr'"'"'s)
+  # drop any previous copies of OUR entries, keep everything else (incl. herdr'"'"'s)
   | .hooks.StopFailure |= (
-      map(select(([.hooks[]?.command] | index($cmd)) | not))
+      map([.hooks[]?.command] as $cs
+          | select(((($cs | index($cmd)) != null) or (($cs | index($raw)) != null)) | not))
       + [{
           matcher: "rate_limit",
           hooks: [{ type: "command", command: $cmd, args: [] }]
+        },
+        {
+          matcher: "",
+          hooks: [{ type: "command", command: $raw, args: [] }]
         }]
     )
 ' "$SETTINGS" > "$tmp"
