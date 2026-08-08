@@ -195,6 +195,7 @@ resume_one() {
 
 # --- main -------------------------------------------------------------------
 
+main() {
 preflight
 log "resumer started (poll=${POLL}s probe=${PROBE_MODEL} max_attempts=${MAX_ATTEMPTS})"
 
@@ -240,3 +241,10 @@ while true; do
 
   sleep "$POLL"
 done
+}
+
+# Run the daemon only when executed directly. bin/test-probe.sh sources this
+# file to unit-test probe_quota() without starting the loop.
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  main
+fi
